@@ -1,4 +1,4 @@
-# 🗜️CLAMP
+# :clamp: CLAMP
 
 [![arXiv](https://img.shields.io/badge/todo.svg)](https://arxiv.org/abs/2104.todo)
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
@@ -6,15 +6,14 @@
 
 CLAMP (Contrastive Language-Assay Molecule Pre-Training) is trained on molecule-bioassay pairs. It can be instructed in natural language to predict the most relevant molecule, given a textual description of a bioassay, without training samples. In extensive experiments, our method yields improved predictive performance on few-shot learning benchmarks and zero-shot problems in drug discovery. 
 
-**Warning**
-Code under construction
+:warning: **CODE UNDER CONSTRUCTION** :warning:
 
 ## Approach
 
 ![CLAMP](./data/figs/clamp.png)
 
 
-## Setup Environment
+## :gear: Setup Environment
 
 When using `conda`, an environment can be set up using
 ```bash
@@ -29,7 +28,7 @@ Another option is:
 pip install -e git+https://github.com/ml-jku/clamp.git
 ```
 
-## Use a pretrained CLAMP model
+## :fire: Use a pretrained CLAMP model
 
 Warning: Currently only one version is available. We will update this repo with new pretrained models.
 
@@ -58,7 +57,7 @@ print("Mol probs for assay:", probs[:,0]) # res: [0.258 0.235 0.269  0.236]
 ```
 
 
-## Reproduce
+## :lab_coat: Reproduce
 
 ### Setup FS-Mol
 For the [preprocessed FS-Mol dataset](https://cloud.ml.jku.at/s/dCjrt9c4arbz6rF/download) used in the paper run the following commands, which downloads, unzips and deletes the zip-file from your clamp directory:
@@ -90,33 +89,10 @@ or use ```--encoding=lsa``.
 
 for the [version used in the paper](https://cloud.ml.jku.at/s/2ybfLRXWSYb4DZN/download) as well as to generate an up-to-date version see ```./data/pubchem.md```
 
-## ðŸ”¥ Train your own model
-
-Run (adjust hparams by adding it as command or in the file ```./hparams/default.json```)
-```bash
-python clamp/train.py --dataset=./data/fsmol --assay_mode=clip --split=FSMOL_split
-```
-
-This should result in a model with a zero-shot test-$\text{AUROC}$ of $0.70$ and $\Delta \text{AP}$ of $0.19$.
-
+## :fire: Train your own model
+TODO
 ## Evaluate a pretrained CLAMP model
-
-Note alterations in the exact split, as well as in the pretraining (droped MoleculeNet molecules)
-
-to compute the clip assay-features run:
-```
-python clamp/dataset/encode_assay.py --assay_path=./data/pubchem18/assay_names.parquet --encoding=clip --gpu=0 --columns title
-```
-and for the compound-features:
-```
-python clamp/dataset/encode_compound.py --compound2smiles=./data/pubchem18/compound_smiles.parquet --compounds=./data/pubchem18/compound_names.parquet --fp_type=morganc+rdkc --fp_size=8192
-```
-
-Now you can use the pretrained CLAMP model:
-```bash
-python clamp/train.py --model=PretrainedCLAMP --dataset=./data/pubchem18 --assay_mode=clip --split=time_a --epoch_max=0
-```
-
+TODO
 ## Downstream Evaluation:
 ### Setup MoleculeNet
 
@@ -130,26 +106,11 @@ To download an preprocess the downstream datasets from the source call.
 ```python clamp/dataset/prep_moleculenet.py```
 (Doesn't include Tox21-10k)
 
-## Linear Probing
-Get a clamp-encoding
-```
-python clamp/dataset/encode_compound.py --compound2smiles=./data/moleculenet/tox21/compound_smiles.parquet --fp_type=clamp
-```
-Run linear probing on this encoding
-```
-python clamp/linear_probe.py ./data/moleculenet/tox21/ --split=scaffold_split --compound_mode=clamp
-```
-
-You can also use the clamp-encoding of a pretrained model by providing an mlflow run-directory:
-You have to specify the correct compound_features_size as well as the assay_features_size of the model.
-```
-python clamp/linear_probe.py ./data/moleculenet/hiv/ --split=scaffold_split --run_dir=./mlruns/711448512597702417/c00af103806c4243b816ecf2aed7387a/ --compound_features_size=8192 --assay_features_size=867
-```
-
-A further example can be found in the [colab-demo](https://colab.research.google.com/github/ml-jku/clamp/blob/main/notebooks/CLAMP_colab_demo.ipynb).
+## :test_tube: Linear Probing
+TODO
 
 
-## Cite
+## :books: Cite
 If you find this work helpful, please cite
 ```bibtex
 @article{seidl2021clamp,
@@ -163,5 +124,5 @@ If you find this work helpful, please cite
 }
 ```
 
-## Keywords
+## :key: Keywords
 Drug Discovery, Machine Learning, Zero-shot, NLP, LLM, Scientific Language Model
