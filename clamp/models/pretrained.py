@@ -65,7 +65,7 @@ class PretrainedCLAMP(MLPLayerNorm):
     def compound_forward(self, x):
         """compound_encoder forward function, takes smiles or features as tensor as input"""
         if isinstance(x[0], str):
-            x = self.prepro_smiles(x, no_grad=True)
+            x = self.prepro_smiles(x)
         return self.compound_encoder.old_forward(x)
     
     def assay_forward(self, x):
