@@ -1,6 +1,6 @@
 # :clamp: CLAMP
 
-[![arXiv](https://img.shields.io/badge/todo.svg)](https://arxiv.org/abs/2104.todo)
+[![arXiv](https://img.shields.io/badge/2303.03363.svg)](https://arxiv.org/abs/2303.03363)
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ml-jku/clamp/blob/main/notebooks/CLAMP_colab_demo.ipynb)
 
@@ -119,8 +119,8 @@ If you find this work helpful, please cite
    journal = {},
    institution = {Institute for Machine Learning, Johannes Kepler University, Linz},
    year = {2023},
-   doi = {},
-   url = {},
+   doi = {10.48550/ARXIV.2303.03363},
+   url = {https://arxiv.org/abs/2303.03363},
 }
 ```
 
