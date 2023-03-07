@@ -71,7 +71,7 @@ class PretrainedCLAMP(MLPLayerNorm):
     def assay_forward(self, x):
         """assay_encoder forward function, takes list of text str or features tensor as input"""
         if isinstance(x[0], str):
-            x = self.encode_text(x, no_grad=True)
+            x = self.prepro_text(x, no_grad=True)
         return self.assay_encoder.old_forward(x)
 
     def prepro_smiles(self, smi, no_grad=True):
