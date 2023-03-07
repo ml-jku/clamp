@@ -74,7 +74,7 @@ class PretrainedCLAMP(MLPLayerNorm):
             x = self.encode_text(x, no_grad=True)
         return self.assay_encoder.old_forward(x)
 
-    def prepro_smiles(self, smi):
+    def prepro_smiles(self, smi, no_grad=True):
         """preprocess smiles for compound encoder"""
         from mhnreact.molutils import convert_smiles_to_fp
         fp_size = self.compound_encoder.linear_input.weight.shape[1]
@@ -83,7 +83,7 @@ class PretrainedCLAMP(MLPLayerNorm):
         compound_features = torch.tensor(fp_inp).to(self.device)
         return compound_features
 
-    def prepro_text(self, txt):
+    def prepro_text(self, txt, no_grad=True):
         """preprocess text for assay encoder"""
         import clip
         if not self.text_encoder:
