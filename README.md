@@ -1,6 +1,8 @@
 # :clamp: CLAMP
 
-[![arXiv](https://img.shields.io/badge/2303.03363.svg)](https://arxiv.org/abs/2303.03363)
+
+
+[![arXiv](https://img.shields.io/badge/arXiv-2303.03363-b31b1b.svg)](https://arxiv.org/abs/2303.03363)
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ml-jku/clamp/blob/main/notebooks/CLAMP_colab_demo.ipynb)
 
