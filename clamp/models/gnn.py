@@ -1,5 +1,5 @@
 from .models import DotProduct, MLPLayerNorm
-from clamp.deeptox.models.perceptron import NetworkLayerNorm, MultilayerPerceptron
+from clamp.models.perceptron import NetworkLayerNorm, MultilayerPerceptron
 
 from typing import List, Tuple
 
