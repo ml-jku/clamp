@@ -54,22 +54,6 @@ def kaiming_normal_initialization(m):
     nn.init.zeros_(m.bias)
 
 
-class LogisticRegression(nn.Module):
-    """
-    Logistic regression with `feature_size` input units and `num_targets`
-    output units. It does not have a non-linearity because this will be
-    included in the loss function.
-    """
-
-    def __init__(self, feature_size, num_targets):
-        super().__init__()
-        self.linear = nn.Linear(feature_size, num_targets)
-
-    def forward(self, x):
-        x = self.linear(x)
-        return x
-
-
 class MultilayerPerceptron(nn.Module):
     """
     Feed-forward neural network with `feature_size` input units, `num_targets`

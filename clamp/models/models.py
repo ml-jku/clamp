@@ -1,4 +1,4 @@
-from clamp.models.perceptron import NetworkLayerNorm, MultilayerPerceptron
+from clamp.models.perceptron import ReLUNetworkBatchNorm, NetworkLayerNorm, MultilayerPerceptron
 
 from typing import List, Tuple
 
@@ -510,7 +510,7 @@ class LSTMAssayEncoderLN(DotProduct):
 class LSTMEncoder(nn.Module):
     """
     LSTM Encoder with params:
-        same as deeptox.models.model.Network* feature_size, hidden_layer_sizes, num_targets, dropout_input, dropout_hidden
+        same as clamp.models.perceptron feature_size, hidden_layer_sizes, num_targets, dropout_input, dropout_hidden
     additionally:
         embedding_dim: default=512
         hidden_dim: of LSTM is set to hidden_layer_sizes[1] by default

@@ -1,5 +1,5 @@
-from .models import DotProduct, MLPLayerNorm
-from clamp.models.perceptron import NetworkLayerNorm, MultilayerPerceptron
+from .models import DotProduct, MLPLayerNorm, TransformerLN, LSTMAssayEncoderLN, Linear
+from clamp.models.perceptron import ReLUNetworkBatchNorm, NetworkLayerNorm, MultilayerPerceptron
 
 from typing import List, Tuple
 

@@ -1,7 +1,5 @@
 import clamp
-from clamp.deeptox.monitor import MetricMonitor
-from clamp.deeptox.loghelper import LogHelper
-from clamp.deeptox import metrics
+from clamp import metrics
 
 from numpy.random import default_rng
 from torch.utils.data import Subset, RandomSampler, SequentialSampler, BatchSampler
@@ -27,6 +25,7 @@ import wandb
 import argparse
 from tqdm import tqdm
 import os
+import json
 
 def parse_hidden_layers(s:str):
     """Parse a string in the form of [32, 32] into a list of integers."""
@@ -36,6 +35,7 @@ def parse_hidden_layers(s:str):
         raise argparse.ArgumentTypeError('String in the form of [32, 32] expected for hidden_layers')
     return res
 
+EVERY = 50000
 LOGGER_FORMAT = '<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name: <19}</cyan> | <cyan>{line: >3}</cyan> | <cyan>{function: <30}</cyan> | <level>{message}</level>'
 NAME2FORMATTER = {
     'assay_mode': str,
@@ -56,7 +56,7 @@ NAME2FORMATTER = {
     'pooling_mode': str,
     'lr_factor': float,
     'patience': int,
-    'attempts': int,
+    'attempts': int, # not used in public version
     'loss_fun': str,
     'tokenizer':str,
     'transformer':str,
@@ -83,7 +83,26 @@ NAME2FORMATTER = {
     'train_subsample':float,
 }
 
-EVERY = 50000
+class EarlyStopper:
+    # adapted from https://stackoverflow.com/questions/71998978/early-stopping-in-pytorch
+    def __init__(self, patience=1, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_validation_loss = np.inf
+        self.improved = False
+
+    def __call__(self, validation_loss):
+        if validation_loss < self.min_validation_loss:
+            self.min_validation_loss = validation_loss
+            self.counter = 0
+            self.improved = True
+        elif validation_loss > (self.min_validation_loss + self.min_delta):
+            self.counter += 1
+            self.improved = False
+            if self.counter >= self.patience:
+                return True
+        return False
 
 def interupptable(func):
     def wrap(*args, **kwargs):
@@ -106,6 +125,15 @@ def seed_everything(seed=70135):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
+
+def get_log_paths(run_info: mlflow.entities.RunInfo):
+    """Return paths to the artifacts directory and the model weights.
+    artifacts_dir, checkpoint_file_path, metrics_file_path = get_log_paths(run_info)
+    """
+    artifacts_dir = Path('mlruns', run_info.experiment_id, run_info.run_id, 'artifacts')
+    checkpoint_file_path = artifacts_dir / 'checkpoint.pt'
+    metrics_file_path = artifacts_dir / 'metrics.parquet'
+    return artifacts_dir, checkpoint_file_path, metrics_file_path
 
 def init_model(
         compound_features_size: int,
@@ -218,24 +246,15 @@ def train_and_test(
             message = f'Resume training from {checkpoint_file}.'
         logger.info(message)
 
-    # set up call-specific logging (run)
-    loghelper = LogHelper(run_info.experiment_id, run_info.run_id, logger_format=LOGGER_FORMAT)
-    loghelper.start()
 
     # initialize checkpoint, if any
     # (if no checkpoint is given, an empty dict is returned)
     checkpoint = init_checkpoint(checkpoint_file, device)
 
-    # set up metric monitoring
-    metric_monitor = MetricMonitor(
-        'davgp', #valid_mean_davgp
-        value=checkpoint.get('value', None),
-        epoch=checkpoint.get('epoch', 0),
-        lower_is_better=False,
-        patience=hparams['patience'],
-        attempts=hparams['attempts'],
-        verbose=verbose
-    )
+    # get paths to the artifacts directory and the model weights
+    articifacts_dir, checkpoint_file_path, metrics_file_path = get_log_paths(run_info)
+
+    early_stopping = EarlyStopper(patience=hparams['patience'], min_delta=0.0001)
 
     # initialize model
     print(hparams)
@@ -438,19 +457,19 @@ def train_and_test(
             activity = activity.to(device)
 
             # forward
-            with torch.autocast("cuda", dtype=torch.bfloat16 if bf16 else torch.float32):
-                if hparams.get('loss_fun') in ('CE', 'Con'):
-                    preactivations = model.forward_dense(compound_features, 
-                        assay_onehot if 'Multitask' in hparams['model'] else assay_features)
-                else:
-                    preactivations = model(compound_features, 
-                        assay_onehot if 'Multitask' in hparams['model'] else assay_features)
+            #with torch.autocast("cuda", dtype=torch.bfloat16 if bf16 else torch.float32):
+            if hparams.get('loss_fun') in ('CE', 'Con'):
+                preactivations = model.forward_dense(compound_features, 
+                    assay_onehot if 'Multitask' in hparams['model'] else assay_features)
+            else:
+                preactivations = model(compound_features, 
+                    assay_onehot if 'Multitask' in hparams['model'] else assay_features)
 
-                # loss
-                beta = hparams.get('beta',1) 
-                if beta is None: beta = 1
-                preactivations = preactivations*1/beta
-                loss = criterion(preactivations, activity)
+            # loss
+            beta = hparams.get('beta',1) 
+            if beta is None: beta = 1
+            preactivations = preactivations*1/beta
+            loss = criterion(preactivations, activity)
             
 
             # zero gradients, backpropagation, update
@@ -676,44 +695,30 @@ def train_and_test(
             if wandb.run: wandb.log({k.replace('_','/'):v for k,v in logdic.items()}, step=epoch)
             #if verbose: logger.info(logdic)
 
-            # monitor AU-ROC
-            if 'valid_mean_davgp' not in logdic:
+            # monitor metric
+
+            evaluation_metric = 'valid_mean_davgp'
+
+            if evaluation_metric not in logdic:
                 logger.info('Using -valid_loss because valid_mean_avgp not in logdic')
-            log_value = logdic.get('valid_mean_davgp',-valid_loss)
+            log_value = logdic.get(evaluation_metric,-valid_loss)
             #metric_monitor(logdic['valid_mean_davgp'], epoch)
-            metric_monitor(log_value, epoch)
+            do_early_stop = early_stopping(-log_value) # smaller is better
 
             # log model checkpoint dir
-            ckpt_dir = loghelper.checkpoint_file
             if wandb.run:
-                wandb.run.config.update({'model_save_dir':ckpt_dir})
+                wandb.run.config.update({'model_save_dir':checkpoint_file_path})
 
-            if metric_monitor.improvement:
+            if early_stopping.improved:
                 logger.info(f'Epoch {epoch}: Save model and optimizer checkpoint with val-davgp: {log_value}.')
                 torch.save({
                     'value': log_value,
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
-                }, loghelper.checkpoint_file)
+                }, checkpoint_file_path)
 
-            if metric_monitor.restore:
-                # do not load last checkpoint's `optimizer` in order not to
-                # loose learning rate changes that may have occurred since then
-                logger.info(f'Epoch {epoch}: Restore model (but not optimizer) from checkpoint.')
-                checkpoint = torch.load(loghelper.checkpoint_file)
-                model.load_state_dict(checkpoint['model_state_dict'])
-
-                # update learning rate
-                scheduler.step()
-                new_lr = [pg['lr'] for pg in optimizer.param_groups]
-                if len(new_lr) > 1:
-                    logger.warning('There is more than one learning rate. All were updated but only the first one in \'optimizer.param_groups\' is logged.')
-                logger.info(f'Epoch {epoch}: Reduce learning rate to {new_lr[0]:.4e}.')
-                mlflow.log_metric('lr', new_lr[0], step=epoch)
-                if wandb.run: wandb.log({'lr':new_lr[0]},step=epoch)
-
-            if metric_monitor.earlystop:
+            if do_early_stop:
                 logger.info(f'Epoch {epoch}: Out of patience. Early stop!')
                 break
 
@@ -727,10 +732,10 @@ def train_and_test(
         epoch -= 1
         logger.info(f'Epoch {epoch}: Restore model from checkpoint.')
         # check if checkpoint exists
-        if not os.path.exists(loghelper.checkpoint_file):
-            logger.warning(f'Checkpoint file {loghelper.checkpoint_file} does not exist. Test with init model.')
+        if not os.path.exists(checkpoint_file_path):
+            logger.warning(f'Checkpoint file {checkpoint_file_path} does not exist. Test with init model.')
         else:
-            checkpoint = torch.load(loghelper.checkpoint_file)
+            checkpoint = torch.load(checkpoint_file_path)
             model.load_state_dict(checkpoint['model_state_dict'])
 
         model.eval()
@@ -857,22 +862,22 @@ def train_and_test(
         metrics_df.index.rename('assay_idx', inplace=True)
 
         metrics_df = biobert.assay_names.merge(metrics_df, left_index=True, right_index=True)
-        logger.info(f'Writing test metrics to {loghelper.metrics_file}')
+        logger.info(f'Writing test metrics to {metrics_file_path}')
         metrics_df.to_parquet(
-            loghelper.metrics_file,
+            metrics_file_path,
             compression=None,
             index=True
         )
 
         with pd.option_context('float_format',"{:.2f}".format): 
             print(metrics_df)
-            print(metrics_df.mean(0))
+            print(metrics_df.mean(0, numeric_only=True))
 
         model.train()
 
-    loghelper.stop(keep)
-
-
+    if not keep:
+        logger.info('Delete model checkpoint.')
+        checkpoint_file_path.unlink() #unlink: remove file or link
 
 def test(
         biobert: dataset.InMemoryClamp,
@@ -907,18 +912,19 @@ def test(
     if verbose:
         logger.info('Start evaluation.')
 
-    # set up call-specific logging (run)
-    loghelper = LogHelper(run_info.experiment_id, run_info.run_id, logger_format=LOGGER_FORMAT)
-    loghelper.start()
+    artifacts_dir = Path('mlruns', run_info.experiment_id, run_info.run_id, 'artifacts')
 
-    # check that test metrics are not there yet
-    assert not loghelper.metrics_file.is_file(), 'Test metrics are already available for this model.'
+    # for logging new checkpoints
+    checkpoint_file_path = artifacts_dir / 'checkpoint.pt'
+    metrics_file_path = artifacts_dir / 'metrics.parquet'
 
     # initialize checkpoint
     if model!=None:
-        checkpoint = init_checkpoint(loghelper.checkpoint_file, device)
+        checkpoint = init_checkpoint(checkpoint_file_path, device)
         assert checkpoint, 'No checkpoint found.'
         assert 'model_state_dict' in checkpoint, 'No model found in checkpoint.'
+
+    articifacts_dir, checkpoint_file_path, metrics_file_path = get_log_paths(run_info)
 
     # initialize model
     if 'Multitask' in hparams['model']:
@@ -1084,9 +1090,9 @@ def test(
         metrics_df.index.rename('assay_idx', inplace=True)
 
         metrics_df = biobert.assay_names.merge(metrics_df, left_index=True, right_index=True)
-        logger.info(f'Writing test metrics to {loghelper.metrics_file}')
+        logger.info(f'Writing test metrics to {metrics_file_path}')
         metrics_df.to_parquet(
-            loghelper.metrics_file,
+            metrics_file_path,
             compression=None,
             index=True
         )
@@ -1094,8 +1100,8 @@ def test(
         if wandb.run:
             wandb.log({"metrics_per_assay": wandb.Table(data=metrics_df)})
 
-        logger.info(f'Saved best test-metrics to {loghelper.metrics_file}')
-        logger.info(f'Saved best checkpoint to {loghelper.checkpoint_file}')
+        logger.info(f'Saved best test-metrics to {metrics_file_path}')
+        logger.info(f'Saved best checkpoint to {checkpoint_file_path}')
 
         model.train()
 
@@ -1206,9 +1212,7 @@ def random(
     if verbose:
         logger.info('Evaluate predictions drawn randomly from U(0, 1).')
 
-    # set up call-specific logging (run)
-    loghelper = LogHelper(run_info.experiment_id, run_info.run_id, logger_format=LOGGER_FORMAT)
-    loghelper.start()
+    articifacts_dir, checkpoint_file_path, metrics_file_path = get_log_paths(run_info)
 
     rng = default_rng()
     probabilities = rng.uniform(size=test_idx.shape)
@@ -1264,17 +1268,19 @@ def random(
     metrics_df.index.rename('assay_idx', inplace=True)
 
     metrics_df = biobert.assay_names.merge(metrics_df, left_index=True, right_index=True)
-    logger.info(f'Writing test metrics to {loghelper.metrics_file}')
+    logger.info(f'Writing test metrics to {metrics_file_path}')
     metrics_df.to_parquet(
-        loghelper.metrics_file,
+        metrics_file_path,
         compression=None,
         index=True
     )
 
 
-def get_hparams(path, mode, verbose=False):
+def get_hparams(path, mode='logs', verbose=False):
     """
-    Get hyperparameters from a path.
+    Get hyperparameters from a path. If logs uses path /params/* files from mlflow.
+    If mode is json: loads in the file provided in path.
+
     Parmeters
     ---------
     path: str
@@ -1287,16 +1293,22 @@ def get_hparams(path, mode, verbose=False):
     if isinstance(path, str):
         path = Path(path)
     hparams = {}
-    for fn in os.listdir(path/'params'): 
-        try:
-            with open(path/f'params/{fn}') as f:
-                lines = f.readlines()
-                try:
-                    hparams[fn] = NAME2FORMATTER.get(fn, str)(lines[0])
-                except:
-                    hparams[fn] = None if len(lines)==0 else lines[0]
-        except:
-            pass
+    if mode == 'logs':
+        for fn in os.listdir(path/'params'): 
+            try:
+                with open(path/f'params/{fn}') as f:
+                    lines = f.readlines()
+                    try:
+                        hparams[fn] = NAME2FORMATTER.get(fn, str)(lines[0])
+                    except:
+                        hparams[fn] = None if len(lines)==0 else lines[0]
+            except:
+                pass
+    elif mode == 'json':
+        with open(path) as f:
+            hparams = json.load(f)
+    if verbose:
+        logger.info("loaded hparams:\n",hparams)
     return hparams
 
 def load_model(mlrun_path='',compound_features_size=4096, assay_features_size=2048, device='cuda:0', ret_hparams=False):

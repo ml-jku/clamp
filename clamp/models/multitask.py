@@ -1,4 +1,4 @@
-from .models import DotProduct, MLPBatchNorm, MLPLayerNorm
+from .models import DotProduct, MLPLayerNorm
 
 from typing import List, Tuple
 
@@ -77,9 +77,6 @@ class Multitask(DotProduct):
 
         return compound_encoder, lambda x: x
 
-
-class MultitaskMLPBatchNorm(Multitask, MLPBatchNorm):
-    pass
 
 
 class MultitaskMLPLayerNorm(Multitask, MLPLayerNorm):
