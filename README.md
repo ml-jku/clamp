@@ -81,7 +81,7 @@ python clamp/dataset/encode_assay.py --assay_path=./data/fsmol/assay_names.parqu
 assay_type_description description assay_category assay_cell_type assay_chembl_id assay_classifications assay_organism assay_parameters assay_strain assay_subcellular_fraction assay_tax_id assay_test_type assay_tissue assay_type bao_format bao_label cell_chembl_id confidence_description confidence_score document_chembl_id relationship_description relationship_type src_assay_id src_id target_chembl_id tissue_chembl_id variant_sequence \
 --suffix=all
 ```
-or use ```--encoding=lsa``.
+or use ```--encoding=lsa```.
 
 ### Setup PubChem
 
@@ -94,7 +94,7 @@ Run (adjust hparams by adding it as command or in the file ```./hparams/default.
 python clamp/train.py --dataset=./data/fsmol --assay_mode=clip --split=FSMOL_split
 ```
 
-This should result in a model with a zero-shot test-$\text{AUROC}$ of $0.70$ and $\Delta \text{AP}$ of $0.19$.
+This should result in a model with a zero-shot $\text{AUROC}$ of $0.70$ and $\Delta \text{AP}$ of $0.19$ on the test-set.
 
 ## Evaluate a pretrained CLAMP model
 
@@ -114,7 +114,7 @@ Now you can use the pretrained CLAMP model:
 python clamp/train.py --model=PretrainedCLAMP --dataset=./data/pubchem18 --assay_mode=clip --split=time_a --epoch_max=0
 ```
 (Warning about checkpoint can be ignored) 
-This should return a test-$\Delta \text{AP}$ of $0.13$.
+This should return $\Delta \text{AP}$ of $0.13$ on the test-set.
 
 ## Downstream Evaluation:
 ### Setup MoleculeNet
