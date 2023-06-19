@@ -65,13 +65,13 @@ class PretrainedCLAMP(MLPLayerNorm):
     def compound_forward(self, x):
         """compound_encoder forward function, takes smiles or features as tensor as input"""
         if isinstance(x[0], str):
-            x = self.prepro_smiles(x, no_grad=True)
+            x = self.prepro_smiles(x)
         return self.compound_encoder.old_forward(x)
     
     def assay_forward(self, x):
         """assay_encoder forward function, takes list of text str or features tensor as input"""
         if isinstance(x[0], str):
-            x = self.encode_text(x, no_grad=True)
+            x = self.prepro_text(x)
         return self.assay_encoder.old_forward(x)
 
     def prepro_smiles(self, smi):
@@ -90,8 +90,8 @@ class PretrainedCLAMP(MLPLayerNorm):
             self.load_clip_text_encoder()
         tokenized_text = clip.tokenize(txt, truncate=True).to(self.device) 
         assay_features = self.text_encoder.encode_text(tokenized_text).float().to(self.device)
-        if no_grad:
-            assay_features = assay_features.detach().requires_grad_(False)
+
+        assay_features = assay_features.detach()
         return assay_features
 
     def encode_smiles(self, smis, no_grad=True):
