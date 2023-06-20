@@ -1,0 +1,20 @@
+{
+    "model": "MLPLayerNorm",
+    "hidden_layers": [2048,1024],
+    "embedding_size": 512,
+    "lr_ini": 1e-5,
+    "epoch_max": 50,
+    "batch_size": 256,
+    "dropout_input": 0.1,
+    "dropout_hidden": 0.3,   
+    "l2": 0.0005,
+    "lr_factor": 1,
+    "patience": 3,
+    "attempts": 1,
+    "optimizer": "AdamW",
+    "loss_fun": "BCE",
+    "warmup_epochs": 2,
+    "train_balanced": 0,
+    "train_subsample": 0,
+    "beta": 1
+}
