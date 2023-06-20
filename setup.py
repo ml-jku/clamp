@@ -28,6 +28,7 @@ setup(
         torchvision
         loguru
         wandb
+        mlflow
         swifter""".split(),
     description="",
     long_description=long_description,
