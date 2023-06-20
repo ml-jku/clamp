@@ -128,6 +128,9 @@ def lsa_fit(list_of_assay_descriptions, model_save_path='./data/models/lsa.jobli
 
     if verbose:
         logger.info('Save the fitted model.')
+    # check if model_save_path exists otherwise create it
+    model_save_path = Path(model_save_path)
+    model_save_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, model_save_path)
 
     return model
