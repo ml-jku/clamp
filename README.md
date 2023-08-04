@@ -154,9 +154,10 @@ If you find this work helpful, please cite
 @article{seidl2023clamp,
    author = {Seidl, Philipp and Vall, Andreu and Hochreiter, Sepp and Klambauer, G{\"u}nter},
    title = {Enhancing Activity Prediction Models in Drug Discovery with the Ability to Understand Human Language},
-   journal = {International Conference on Machine Learning},
+   journal = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
    institution = {Institute for Machine Learning, Johannes Kepler University, Linz},
    year = {2023},
+   month = {July},
    eprint={2303.03363},
    doi = {}
 }
