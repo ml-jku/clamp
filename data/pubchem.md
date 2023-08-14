@@ -46,6 +46,6 @@ To compute the assay encodings as input for your model run
 ```bash
 python clamp/dataset/encode_assay.py --encoding=clip
 ```
-or use ```--encoding=lsa``.
+or use ```--encoding=lsa```.
 
 
