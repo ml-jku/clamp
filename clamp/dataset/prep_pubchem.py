@@ -188,12 +188,22 @@ if __name__ == '__main__':
         if zipfilenames.endswith('.zip'): 
             all_zipfiles.append(os.path.join(pubchem_assay_dir, zipfilenames))
 
-    df = prepro_all_bioassay(all_zipfiles[8], ret_all=False) #quick test
+    # add try-catch for invalid zip files
+    def faulttolerant_prepro_all_bioassay(fn: Union[str, Path], ret_all=False):
+        try:
+            return prepro_all_bioassay(fn, ret_all=ret_all)
+        except:
+            logger.error(f'Error in reading {fn}')
+            return pd.DataFrame()
+
+    df = faulttolerant_prepro_all_bioassay(all_zipfiles[8], ret_all=False) #quick test
+
+
  
     # parallelize the prepro_bioassay function
     num_cores = args.cores
     #all_df = Parallel(n_jobs=num_cores)(delayed(prepro_all_bioassay)(f) for f in all_zipfiles)
-    all_df = process_map(prepro_all_bioassay, all_zipfiles, max_workers=num_cores, chunksize=1)
+    all_df = process_map(faulttolerant_prepro_all_bioassay, all_zipfiles, max_workers=num_cores, chunksize=1)
     all_df = pd.concat(all_df, ignore_index=True)
     all_df = all_df.rename(columns={'cid':'CID','aid':'AID'})
     all_df['AID'] = all_df['AID'].astype(int)
