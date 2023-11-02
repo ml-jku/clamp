@@ -1,6 +1,6 @@
 
 from .scaled import ScaledMLPLayerNorm
-from .models import MLPLayerNorm
+from .models import MLPLayerNorm, Global
 from .models import DotProduct
 
 import torch
@@ -12,69 +12,44 @@ from loguru import logger
 from pathlib import Path
 import json
 
-class PretrainedCLAMP(MLPLayerNorm):
-    """
-    A CLAMP model that uses a CLIP model as the text encoder pretrained on PubChem data. db4d
-    """
-    # init method
-    def __init__(self, path_dir='./data/models/clamp_clip/', device='cuda:0', **kwargs):
+class Pretrained(DotProduct):
+    CHECKPOINT_URL = None
+    HP_URL = None
+
+    def __init__(self, path_dir='./data/models/pretrained/', device='cuda:0', **kwargs):
         self.path_dir = Path(path_dir)
         self.checkpoint = self.path_dir/"checkpoint.pt"
-
-        self.load_or_download()
-        self.kwargs = kwargs 
-        self.compound_features_size = 8192
-        self.assay_features_size = 512
         self.device = device
+        self.kwargs = kwargs
+        self.download_weights_if_not_present()
 
-        self.text_encoder = None
-
-        # override forward function of compound encoder
-        self.compound_encoder.old_forward = self.compound_encoder.forward
-        self.compound_encoder.forward = self.compound_forward
-        self.assay_encoder.old_forward = self.assay_encoder.forward
-        self.assay_encoder.forward = self.assay_forward
-
-    def load_or_download(self, device='cpu'):
-        if not os.path.exists(self.path_dir):
-            url =    "https://cloud.ml.jku.at/s/7nxgpAQrTr69Rp2/download/checkpoint.pt"
-            url_hp = "https://cloud.ml.jku.at/s/dRX9TWPrF7WqnHd/download/hp.json"
-            # download from url via wget
-            # create path if not exists
-            os.makedirs(self.path_dir, exist_ok=True)
-            logger.info(f"Downloading checkpoint.pt from {url} to {self.path_dir}")
-            os.system(f"wget {url} -O {self.checkpoint}")
-            # download hp.json
-            os.system(f"wget {url_hp} -O {Path(self.path_dir)/'hp.json'}")
-        # load in the hyperparameters
         hp = json.load(open(self.path_dir/'hp.json', 'r'))
         self.hparams = hp
-        super().__init__(**hp) #this calls _define_encoders
+        
+        super().__init__(**hp)
 
-        # load in the model and generate hidden
-        cp = torch.load(self.checkpoint, map_location=device)#, map_location=self.device)
+        cp = torch.load(self.checkpoint, map_location=device)
         self.load_state_dict(cp['model_state_dict'], strict=False)
+        logger.info(f"Loaded pretrained model from {self.checkpoint}")
 
-    def load_clip_text_encoder(self):
-        import clip
-        from PIL import Image
-        model_clip, preprocess = clip.load("ViT-B/32", device=self.device)
-        #del model_clip.visual
-        self.text_encoder = model_clip
+    def download_weights_if_not_present(self, device='cpu'):
+        # download weights if not present
+        if not os.path.exists(self.path_dir):
+            if not self.CHECKPOINT_URL or not self.HP_URL:
+                raise ValueError("CHECKPOINT_URL and HP_URL must be set in the derived class.")
+            
+            os.makedirs(self.path_dir, exist_ok=True)
+            logger.info(f"Downloading checkpoint.pt from {self.CHECKPOINT_URL} to {self.path_dir}")
+            os.system(f"wget {self.CHECKPOINT_URL} -O {self.checkpoint}")
+            os.system(f"wget {self.HP_URL} -O {Path(self.path_dir)/'hp.json'}")
     
     def compound_forward(self, x):
         """compound_encoder forward function, takes smiles or features as tensor as input"""
         if isinstance(x[0], str):
             x = self.prepro_smiles(x)
         return self.compound_encoder.old_forward(x)
-    
-    def assay_forward(self, x):
-        """assay_encoder forward function, takes list of text str or features tensor as input"""
-        if isinstance(x[0], str):
-            x = self.prepro_text(x)
-        return self.assay_encoder.old_forward(x)
 
-    def prepro_smiles(self, smi):
+    def prepro_smiles(self, smi, no_grad=True):
         """preprocess smiles for compound encoder"""
         from mhnreact.molutils import convert_smiles_to_fp
         fp_size = self.compound_encoder.linear_input.weight.shape[1]
@@ -83,23 +58,52 @@ class PretrainedCLAMP(MLPLayerNorm):
         compound_features = torch.tensor(fp_inp).to(self.device)
         return compound_features
 
-    def prepro_text(self, txt):
-        """preprocess text for assay encoder"""
-        import clip
-        if not self.text_encoder:
-            self.load_clip_text_encoder()
-        tokenized_text = clip.tokenize(txt, truncate=True).to(self.device) 
-        assay_features = self.text_encoder.encode_text(tokenized_text).float().to(self.device)
-
-        assay_features = assay_features.detach()
-        return assay_features
-
     def encode_smiles(self, smis, no_grad=True):
         """encode smiles"""
         compound_features = self.prepro_smiles(smis)
         with torch.no_grad() if no_grad else torch.enable_grad():
             compound_features = self.compound_encoder(compound_features)
         return compound_features
+
+class PretrainedCLAMP(MLPLayerNorm, Pretrained):
+    CHECKPOINT_URL = "https://cloud.ml.jku.at/s/7nxgpAQrTr69Rp2/download/checkpoint.pt"
+    HP_URL = "https://cloud.ml.jku.at/s/dRX9TWPrF7WqnHd/download/hp.json"
+
+    def __init__(self, path_dir='./data/models/clamp_clip/', device='cuda:0', **kwargs):
+        super().__init__(path_dir, device, **kwargs)
+        self.compound_features_size = 8192
+        self.assay_features_size = 768
+        self.text_encoder = None
+
+        # override forward function of compound encoder
+        self.compound_encoder.old_forward = self.compound_encoder.forward
+        self.compound_encoder.forward = self.compound_forward
+        self.assay_encoder.old_forward = self.assay_encoder.forward
+        self.assay_encoder.forward = self.assay_forward
+
+    def load_clip_text_encoder(self):
+        import clip
+        from PIL import Image
+        model_clip, preprocess = clip.load("ViT-B/32", device=self.device)
+        #del model_clip.visual
+        self.text_encoder = model_clip
+    
+    def assay_forward(self, x):
+        """assay_encoder forward function, takes list of text str or features tensor as input"""
+        if isinstance(x[0], str):
+            x = self.encode_text(x, no_grad=True)
+        return self.assay_encoder.old_forward(x)
+
+    def prepro_text(self, txt, no_grad=True):
+        """preprocess text for assay encoder"""
+        import clip
+        if not self.text_encoder:
+            self.load_clip_text_encoder()
+        tokenized_text = clip.tokenize(txt, truncate=True).to(self.device) 
+        assay_features = self.text_encoder.encode_text(tokenized_text).float().to(self.device)
+        if no_grad:
+            assay_features = assay_features.detach().requires_grad_(False)
+        return assay_features
 
     def encode_text(self, txt, no_grad=True):
         """encode text"""
@@ -108,62 +112,22 @@ class PretrainedCLAMP(MLPLayerNorm):
             assay_features = self.assay_encoder(assay_features)
         return assay_features
 
-
-class PretrainedFH(MLPLayerNorm):
+class PretrainedFH(Global, Pretrained):
     """
     Frequent Hitter Baseline
+    trained using:
+    python clamp/train.py --dataset=./data/pubchem18 --split=time_a --model=Global --experiment=FH_baseline
     """
-    
-    # init method
-    def __init__(self, assay_features_size, compound_features_size, embedding_size, **kwargs):
-        super().__init__(assay_features_size, compound_features_size, embedding_size, **kwargs)
-        self.kwargs = kwargs 
+    CHECKPOINT_URL = "https://cloud.ml.jku.at/s/jsY85xdArSgDJ3b/download/checkpoint.pt"
+    HP_URL = "https://cloud.ml.jku.at/s/WHJaHApCTLLG4cq/download/hp.json"
+
+    def __init__(self, path_dir='./data/models/fh_baseline/', device='cuda:0', **kwargs):
+        super().__init__(path_dir, device, **kwargs)
         self.compound_features_size = 8192
-        self.assay_features_size = 512
+        self.assay_features_size = None
+        self.checkpoint = self.path_dir/"checkpoint.pt"
 
-    def _define_encoders(
-            self,
-            compound_layer_sizes: List[int],
-            assay_layer_sizes: List[int],
-            dropout_input: float,
-            dropout_hidden: float, **kwargs
-    ) -> Tuple[callable, callable]:
-
-        from biobert.utils import load_model
-
-        self.path_dir = './mlruns/54/6f38bba6caed41ed9c93336f27310df3/'
-        self.device = 'cuda:0'
-
-        model, hparams = load_model(mlrun_path=self.path_dir, compound_features_size=8192, 
-                    assay_features_size=512,
-                    device=self.device, ret_hparams=True)
-        model.to(self.device)
-        self.hparams = hparams
-        # for param in model unpack and set to this mdoel
-        self.model = model
-
-        return model.compound_encoder, model.assay_encoder
-
-    def forward(
-            self,
-            compound_features: torch.Tensor,
-            assay_features: torch.Tensor
-    ) -> torch.Tensor:
-        """
-        In the end scale the preactivations.
-        """
-
-        if isinstance(compound_features[0], str):
-            from mhnreact.molutils import convert_smiles_to_fp
-            fp_size = self.compound_encoder.linear_input.weight.shape[1]
-            compound_features = compound_features.detach().cpu().numpy().tolist()
-            fp_inp = convert_smiles_to_fp(compound_features, 
-                                  which=self.hparams['compound_mode'], fp_size=fp_size, njobs=1).astype(np.float32)
-            compound_features = torch.tensor(fp_inp).to(self.device)
-
-        activ = self.model.forward(compound_features, assay_features)
-        return activ
-
+        self.text_encoder = None
 
 class KVPLMEncoder(nn.Module):
     def __init__(
