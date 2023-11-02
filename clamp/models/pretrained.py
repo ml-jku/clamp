@@ -32,6 +32,10 @@ class Pretrained(DotProduct):
         self.load_state_dict(cp['model_state_dict'], strict=False)
         logger.info(f"Loaded pretrained model from {self.checkpoint}")
 
+        # override forward function of compound encoder to enable forward with non-tensor
+        self.compound_encoder.old_forward = self.compound_encoder.forward
+        self.compound_encoder.forward = self.compound_forward
+
     def download_weights_if_not_present(self, device='cpu'):
         # download weights if not present
         if not os.path.exists(self.path_dir):
@@ -75,9 +79,6 @@ class PretrainedCLAMP(MLPLayerNorm, Pretrained):
         self.assay_features_size = 768
         self.text_encoder = None
 
-        # override forward function of compound encoder
-        self.compound_encoder.old_forward = self.compound_encoder.forward
-        self.compound_encoder.forward = self.compound_forward
         self.assay_encoder.old_forward = self.assay_encoder.forward
         self.assay_encoder.forward = self.assay_forward
 
@@ -91,7 +92,7 @@ class PretrainedCLAMP(MLPLayerNorm, Pretrained):
     def assay_forward(self, x):
         """assay_encoder forward function, takes list of text str or features tensor as input"""
         if isinstance(x[0], str):
-            x = self.encode_text(x, no_grad=True)
+            x = self.prepro_text(x, no_grad=True)
         return self.assay_encoder.old_forward(x)
 
     def prepro_text(self, txt, no_grad=True):
