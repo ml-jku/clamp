@@ -10,6 +10,9 @@ CLAMP (Contrastive Language-Assay Molecule Pre-Training) is trained on molecule-
 
 ![CLAMP](./data/figs/clamp.png)
 
+## :rocket: Updates
+
+- 11/23: Pretrained Model weights for Frequent Hitter (FH), a strong baseline for few- and zero-shot drug discovery. Use it running `fh_model = clamp.FH(device='cpu')`.
 
 ## :gear: Setup Environment
 
