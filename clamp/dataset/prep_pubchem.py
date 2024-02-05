@@ -34,7 +34,7 @@ def download_pubchem(dir: str):
     os.system('wget -N -r ftp://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz')
     print('Downloaded PubChem dataset to', dir)
     # delete pubchem18.zip
-    os.system('rm -rf ftp.ncbi.nlm.nih.gov')
+    # os.system('rm -rf ftp.ncbi.nlm.nih.gov')
     # jump back to original dir
     os.chdir(cur_dir)
 
