@@ -16,6 +16,13 @@ This downloads the PubChem-database and preprocesses it.
 You may manually delete the raw PubChem Folder (data_dir/`ftp.ncbi.nlm.nih.gov`) after running this command.
 Get some coffee, this will take quite some time ;)
 
+For reproducibility, data is also available through
+```bash
+wget -N -r https://cloud.ml.jku.at/s/fi83oGMN2KTbsNQ/download -O pubchem23.zip
+unzip pubchem23.zip
+rm pubchem23.zip
+```
+
 ## Satistics
 
 |                                 | PubChem23 (2023-02)   | PubChem18   | PubChem HTS   | FSMOL (v1)   |
@@ -46,6 +53,6 @@ To compute the assay encodings as input for your model run
 ```bash
 python clamp/dataset/encode_assay.py --encoding=clip
 ```
-or use ```--encoding=lsa``.
+or use ```--encoding=lsa```.
 
 

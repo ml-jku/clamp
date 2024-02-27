@@ -1,7 +1,7 @@
 # :clamp: CLAMP
 
 [![arXiv](https://img.shields.io/badge/arXiv-2303.03363-b31b1b.svg)](https://arxiv.org/abs/2303.03363)
-[![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ml-jku/clamp/blob/main/notebooks/CLAMP_colab_demo.ipynb)
 
 CLAMP (Contrastive Language-Assay Molecule Pre-Training) is trained on molecule-bioassay pairs. It can be instructed in natural language to predict the most relevant molecule, given a textual description of a bioassay, without training samples. In extensive experiments, our method yields improved predictive performance on few-shot learning benchmarks and zero-shot problems in drug discovery. 
@@ -10,6 +10,10 @@ CLAMP (Contrastive Language-Assay Molecule Pre-Training) is trained on molecule-
 
 ![CLAMP](./data/figs/clamp.png)
 
+## :rocket: Updates
+
+- 11/23: Pretrained Model weights for Frequent Hitter (FH), a strong baseline for few- and zero-shot drug discovery. Use it running `fh_model = clamp.FH(device='cpu')`.
+- 10/23: PubChem23, a new version of the PubChem-dataset with >~500k assays, in a preprocessed form is available (see [./data/pubchem.md](./data/pubchem.md))
 
 ## :gear: Setup Environment
 
@@ -154,9 +158,10 @@ If you find this work helpful, please cite
 @article{seidl2023clamp,
    author = {Seidl, Philipp and Vall, Andreu and Hochreiter, Sepp and Klambauer, G{\"u}nter},
    title = {Enhancing Activity Prediction Models in Drug Discovery with the Ability to Understand Human Language},
-   journal = {International Conference on Machine Learning},
+   journal = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
    institution = {Institute for Machine Learning, Johannes Kepler University, Linz},
    year = {2023},
+   month = {July},
    eprint={2303.03363},
    doi = {}
 }
