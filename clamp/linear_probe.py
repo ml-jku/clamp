@@ -168,8 +168,10 @@ def linear_probe(dataset='./data/MoleculeNet/bace_c/', assay_mode='', compound_m
 
             mtrcs = compute_metrics(y_test, y_pred)
             roc_aucs.append(mtrcs['roc_auc'])
-            df_res = df_res.append( {'seed':seed, 'dataset':dataset, 'task_i':task_i, 'clf':f'{"LR" if len(str(run_dir))>=5 else str(run_dir)} {fp_type}-{fp_size} {split}-split (ours)',
-                                     'fp_type':fp_type, 'fp_size':fp_size, 'train_set_size':train_set_size, **mtrcs}, ignore_index=True)
+            new_row =  {'seed':seed, 'dataset':dataset, 'task_i':task_i, 'clf':f'{"LR" if len(str(run_dir))>=5 else str(run_dir)} {fp_type}-{fp_size} {split}-split (ours)',
+                                     'fp_type':fp_type, 'fp_size':fp_size, 'train_set_size':train_set_size, **mtrcs}
+            df_res = pd.concat([df_res, pd.DataFrame([new_row])], ignore_index=True)
+            
 
             # model for linear probing
             if model is not None:
@@ -186,10 +188,10 @@ def linear_probe(dataset='./data/MoleculeNet/bace_c/', assay_mode='', compound_m
                             )
                 # str(type(model)).split('.')[-1][:-2] # get model name
                 clfd = f' {hparams["model"]} {fp_type} {hparams["assay_mode"]} {split}-split {run_dir} (ours)'
-                df_res = df_res.append( {'seed':seed, 'dataset':dataset, 'task_i':task_i, 'clf':clfd,
+                new_row =  {'seed':seed, 'dataset':dataset, 'task_i':task_i, 'clf':clfd,
                                      'fp_type':fp_type, 'fp_size':fp_size, 'train_set_size':train_set_size, 'assay_mode':hparams["assay_mode"], 
-                                     'split':split, 'run_dir':run_dir,
-                                     **mtrcs2}, ignore_index=True)
+                                     'split':split, 'run_dir':run_dir, **mtrcs2}
+                df_res = pd.concat([df_res, pd.DataFrame([new_row])], ignore_index=True)
             else:
                 roc_auc2 = np.nan
 
@@ -224,7 +226,7 @@ if __name__ == '__main__':
                             assay_features_size=args.assay_features_size, compound_features_size=args.compound_features_size, 
                             train_set_size=args.train_set_size, seed=args.seed)
 
-    df_tmp = df_res.groupby(['clf']).mean()
+    df_tmp = df_res.groupby(['clf']).mean(numeric_only=True)
     print('roc_auc:', df_tmp['roc_auc'], 'davgp:', df_tmp['davgp'])
     out_fn = f'./data/experiments/linear_probing/{args.run_dir.replace("/","").replace(".","")}_{dataset_args["compound_mode"]}_{args.dataset.replace("/","%")}_{args.split}_{args.seed}_linear_probing.csv'
     print('saved to', out_fn)
