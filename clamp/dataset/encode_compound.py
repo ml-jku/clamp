@@ -25,6 +25,38 @@ or
 python clamp/dataset/encode_compound.py --compound2smiles=./data/pubchem23/compound_smiles.parquet --compounds=./data/pubchem23/compound_names.parquet --fp_type=morganc+rdkc --fp_size=8192
 """
 
+class SparseMorganEncoder:
+    def __init__(self, radius=2, fp_size=1024, njobs=1):
+        self.radius = radius
+        self.fp_size = fp_size
+        self.njobs = njobs
+        if fp_size>65535:
+            raise ValueError('fp_size must be <= 65535 (uint16) for sparse matrix representation.')
+
+    def encode(self, smiles_list):
+        fps = Parallel(njobs=self.njobs)(
+            delayed(self._get_morgan_fingerprint)(smiles) for smiles in tqdm(smiles_list)
+        )
+        return self._sparse_matrix_from_fps(fps)
+
+    def _get_morgan_fingerprint(self, smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is not None:
+            fp = AllChem.GetMorganFingerprintAsBitVect(mol, self.radius, nBits=self.fp_size)
+            # if less than 64 bits are on; this is more efficient; otherwise storing the 1024 bits is more efficient
+            return np.array((fp.GetOnBits()), dtype=np.uint16) # only valid for fp_size 65535
+        else:
+            return None
+
+    def _sparse_matrix_from_fps(self, on_bits):
+        n_samples = len(on_bits)
+        sparse_matrix = sparse.lil_matrix((n_samples, self.fp_size), dtype=bool)
+        # lil -- efficient for constructing
+        for i, fp in enumerate(on_bits):
+            if fp is not None:
+                sparse_matrix[np.array([i]*len(fp)), fp] = True
+        print('converting to csr for saving')
+        return sparse_matrix.tocsr() # fro saving to csr
 
 class CdddEncoder:
     def __init__(self, njobs=32):
@@ -143,7 +175,7 @@ if __name__ == '__main__':
         args.fp_type = args.fp_type.split('/')[-1]
 
     if args.fp_type=='sprsFP':
-        raise NotImplementedError('sprsFP not implemented')
+        encoder = SparseMorganEncoder(radius=2, fp_size=args.fp_size, njobs=args.njobs)
     elif args.fp_type=='cddd':
         enocder = CdddEncoder(njobs=args.njobs)
     elif args.fp_type=='clamp':
@@ -156,6 +188,6 @@ if __name__ == '__main__':
     
     p = Path(args.compound2smiles).with_name(f'compound_features_{args.fp_type}.npy')
     logger.info(f'Save compound features with shape {x.shape} to {p}')
-    np.save(p, x)
+    np.save(p, x) if args.fp_type!='sprsFP' else sparse.save_npz(p, x)
 
 
