@@ -12,6 +12,7 @@ CLAMP (Contrastive Language-Assay Molecule Pre-Training) is trained on molecule-
 
 ## :rocket: Updates
 
+- 04/24: create augmentations for assay-descriptions using  ![assay_augment.py](./clamp/dataset/assay_augment.py) 
 - 11/23: Pretrained Model weights for Frequent Hitter (FH), a strong baseline for few- and zero-shot drug discovery. Use it running `fh_model = clamp.FH(device='cpu')`.
 - 10/23: PubChem23, a new version of the PubChem-dataset with >~500k assays, in a preprocessed form is available (see [./data/pubchem.md](./data/pubchem.md))
 
